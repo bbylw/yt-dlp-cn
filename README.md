@@ -1,3 +1,5 @@
+> 本文档汉化自 [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp)
+
 <!-- MANPAGE: BEGIN EXCLUDED SECTION -->
 <div align="center">
 
