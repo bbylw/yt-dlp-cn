@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yt-dlp — 强大的命令行音视频下载工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0e0e10',
+                        surface: '#18181b',
+                        surfaceHover: '#1f1f23',
+                        border: '#2a2a2e',
+                        accent: '#e44c65',
+                        accentDim: '#c93d55',
+                        mint: '#4fd1a5',
+                        amber: '#e0a458',
+                        slate: '#a0a0b0',
+                        dim: '#6b6b7b',
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans SC"', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        * { scrollbar-width: thin; scrollbar-color: #2a2a2e #0e0e10; }
+        ::selection { background: #e44c6540; }
+        html { scroll-behavior: smooth; }
+        body { -webkit-font-smoothing: antialiased; }
+        .gradient-text { background: linear-gradient(135deg, #e44c65, #e0a458); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .code-block { background: #111114; border: 1px solid #2a2a2e; }
+        .nav-link { position: relative; transition: color 0.2s; }
+        .nav-link::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1px; background: #e44c65; transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .nav-link:hover::after, .nav-link.active::after { width: 100%; }
+        .card { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s; }
+        .card:hover { transform: translateY(-2px); border-color: #3a3a3e; }
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        @keyframes fadeIn { to { opacity: 1; } }
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+        .option-group summary { cursor: pointer; list-style: none; }
+        .option-group summary::-webkit-details-marker { display: none; }
+        .option-group[open] .chevron { transform: rotate(90deg); }
+        .chevron { transition: transform 0.2s; }
+        .search-highlight { background: #e44c6530; border-radius: 2px; padding: 0 2px; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+        pre code { display: block; overflow-x: auto; }
+        .mobile-menu { transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .mobile-menu.open { transform: translateX(0); }
+    </style>
+</head>
+<body class="bg-bg text-slate font-sans min-h-[100dvh]">
+
+    <!-- 顶部导航 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-bg/80 backdrop-blur-xl border-b border-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <a href="#" class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <span class="font-semibold text-white tracking-tight text-[15px]">yt-dlp</span>
+                    
+                </a>
+                <div class="hidden md:flex items-center gap-6 text-[13px]">
+                    <a href="#install" class="nav-link text-dim hover:text-white">安装</a>
+                    <a href="#usage" class="nav-link text-dim hover:text-white">使用</a>
+                    <a href="#options" class="nav-link text-dim hover:text-white">选项</a>
+                    <a href="#config" class="nav-link text-dim hover:text-white">配置</a>
+                    <a href="#output" class="nav-link text-dim hover:text-white">输出模板</a>
+                    <a href="#format" class="nav-link text-dim hover:text-white">格式选择</a>
+                    <a href="#plugins" class="nav-link text-dim hover:text-white">插件</a>
+                    <a href="#embed" class="nav-link text-dim hover:text-white">嵌入</a>
+                    <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" class="text-dim hover:text-white flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    </a>
+                </div>
+                <button id="mobileMenuBtn" class="md:hidden text-dim hover:text-white p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 移动端菜单 -->
+    <div id="mobileMenu" class="mobile-menu fixed top-14 right-0 bottom-0 w-64 bg-surface z-40 border-l border-border p-6 md:hidden">
+        <div class="flex flex-col gap-4 text-[14px]">
+            <a href="#install" class="text-dim hover:text-white mobile-nav">安装</a>
+            <a href="#usage" class="text-dim hover:text-white mobile-nav">使用</a>
+            <a href="#options" class="text-dim hover:text-white mobile-nav">选项</a>
+            <a href="#config" class="text-dim hover:text-white mobile-nav">配置</a>
+            <a href="#output" class="text-dim hover:text-white mobile-nav">输出模板</a>
+            <a href="#format" class="text-dim hover:text-white mobile-nav">格式选择</a>
+            <a href="#plugins" class="text-dim hover:text-white mobile-nav">插件</a>
+            <a href="#embed" class="text-dim hover:text-white mobile-nav">嵌入</a>
+        </div>
+    </div>
+
+    <!-- Hero -->
+    <section class="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div class="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+                <div class="fade-in flex items-center gap-2 mb-6">
+                    <span class="text-[11px] font-mono text-accent bg-accent/10 px-2 py-1 rounded-full">开源 · Unlicense</span>
+                    <span class="text-[11px] font-mono text-mint bg-mint/10 px-2 py-1 rounded-full">支持数千网站</span>
+                </div>
+                <h1 class="fade-in stagger-1 text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter leading-[1.1] mb-5">
+                    命令行<br><span class="gradient-text">音视频下载</span><br>终极工具
+                </h1>
+                <p class="fade-in stagger-2 text-base sm:text-lg text-slate leading-relaxed max-w-[50ch] mb-8">
+                    yt-dlp 是一个功能丰富的命令行音频/视频下载器，基于 youtube-dl 分支开发，支持数千个网站，具有格式排序、SponsorBlock 集成、多线程下载等强大特性。
+                </p>
+                <div class="fade-in stagger-3 flex flex-wrap gap-3">
+                    <a href="#install" class="inline-flex items-center gap-2 bg-accent hover:bg-accentDim text-white px-5 py-2.5 rounded-lg text-[14px] font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        开始安装
+                    </a>
+                    <a href="#usage" class="inline-flex items-center gap-2 bg-surface hover:bg-surfaceHover text-white px-5 py-2.5 rounded-lg text-[14px] font-medium border border-border transition-colors">
+                        查看文档
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+            <div class="fade-in stagger-4">
+                <div class="code-block rounded-xl p-5 font-mono text-[13px] leading-relaxed">
+                    <div class="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                        <span class="w-2.5 h-2.5 rounded-full bg-accent/60"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber/60"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-mint/60"></span>
+                        <span class="ml-2 text-[11px] text-dim">终端</span>
+                    </div>
+                    <div class="space-y-2">
+                        <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-amber">"https://www.youtube.com/watch?v=..."</span></p>
+                        <p class="text-dim"># 下载最佳画质+最佳音质并自动合并</p>
+                        <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-f</span> <span class="text-amber">"bv+ba/b"</span> URL</p>
+                        <p class="text-dim"># 仅提取音频为 mp3</p>
+                        <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-x</span> <span class="text-accent">--audio-format</span> mp3 URL</p>
+                        <p class="text-dim"># 下载整个播放列表</p>
+                        <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-o</span> <span class="text-amber">"%(playlist)s/%(title)s.%(ext)s"</span> URL</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 特性卡片 -->
+    <section class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pb-20">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="card bg-surface border border-border rounded-xl p-5">
+                <div class="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center mb-3">
+                    <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <h3 class="text-white text-[14px] font-semibold mb-1.5">多线程下载</h3>
+                <p class="text-dim text-[13px] leading-relaxed">并行下载 HLS/DASH 片段，使用 <code class="text-accent/80 font-mono text-[12px]">-N</code> 设置线程数，大幅提升下载速度。</p>
+            </div>
+            <div class="card bg-surface border border-border rounded-xl p-5">
+                <div class="w-9 h-9 rounded-lg bg-mint/10 flex items-center justify-center mb-3">
+                    <svg class="w-5 h-5 text-mint" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg>
+                </div>
+                <h3 class="text-white text-[14px] font-semibold mb-1.5">格式排序</h3>
+                <p class="text-dim text-[13px] leading-relaxed">使用 <code class="text-mint/80 font-mono text-[12px]">-S</code> 精确控制格式偏好——分辨率、编解码器、比特率、文件大小等。</p>
+            </div>
+            <div class="card bg-surface border border-border rounded-xl p-5">
+                <div class="w-9 h-9 rounded-lg bg-amber/10 flex items-center justify-center mb-3">
+                    <svg class="w-5 h-5 text-amber" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+                </div>
+                <h3 class="text-white text-[14px] font-semibold mb-1.5">SponsorBlock</h3>
+                <p class="text-dim text-[13px] leading-relaxed">自动标记或移除 YouTube 视频中的赞助商片段、片头片尾等内容。</p>
+            </div>
+            <div class="card bg-surface border border-border rounded-xl p-5">
+                <div class="w-9 h-9 rounded-lg bg-[#7c8cf8]/10 flex items-center justify-center mb-3">
+                    <svg class="w-5 h-5 text-[#7c8cf8]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </div>
+                <h3 class="text-white text-[14px] font-semibold mb-1.5">插件系统</h3>
+                <p class="text-dim text-[13px] leading-relaxed">通过提取器和后处理器插件扩展功能，支持自定义开发和社区共享。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 分隔线 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 安装 -->
+    <section id="install" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">01 / 安装</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">快速开始</h2>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-6 mb-12">
+            <div class="card bg-surface border border-border rounded-xl p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <svg class="w-6 h-6 text-[#0078D4]" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                    <span class="text-white font-semibold text-[15px]">Windows</span>
+                </div>
+                <div class="code-block rounded-lg p-3 font-mono text-[12px] mb-3">
+                    <p class="text-dim"># 直接下载可执行文件</p>
+                    <p class="text-amber break-all">yt-dlp.exe</p>
+                </div>
+                <p class="text-dim text-[12px]">推荐下载 <a href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" class="text-accent hover:underline">yt-dlp.exe</a>（Win8+ x64 独立版）</p>
+            </div>
+
+            <div class="card bg-surface border border-border rounded-xl p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <svg class="w-6 h-6 text-amber" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.311.002-.465.014-.612.047-1.194.282-1.673.664-.474.38-.83.886-1.031 1.472-.062.186-.105.379-.126.579-.118-.003-.236.004-.356.024-.768.13-1.452.58-1.876 1.235-.417.645-.564 1.416-.395 2.172.034.155.085.307.15.452-.262.098-.511.225-.738.396-.626.472-1.055 1.166-1.17 1.942-.116.775.062 1.564.517 2.15.133.172.288.326.459.461-.094.265-.161.542-.191.827-.098.916.217 1.835.866 2.52.17.18.361.333.568.46-.025.125-.041.252-.043.38-.014.77.298 1.51.859 2.04.278.262.609.459.968.581-.002.061.003.122.015.183.098.604.377 1.162.818 1.592.44.432 1.01.716 1.636.81.074.013.149.02.225.024-.002.082.006.163.025.243.116.484.358.926.714 1.294.354.37.812.624 1.335.742.065.015.131.025.198.03.005.082.02.164.046.242.137.418.374.791.7 1.087.325.297.741.51 1.21.617.065.016.13.025.197.029.01.078.03.155.06.229.168.408.428.76.773 1.024.347.263.778.44 1.26.516h.003c.078.013.157.017.236.017.178 0 .354-.025.525-.076l.002.001c.471-.15.876-.463 1.148-.867.27-.404.395-.877.355-1.352-.012-.142-.041-.281-.086-.414.12-.043.236-.097.345-.164.554-.339.93-.871 1.042-1.476.113-.606-.017-1.228-.369-1.73-.065-.093-.139-.18-.221-.259.103-.159.19-.33.256-.514.212-.596.168-1.252-.115-1.814-.125-.249-.297-.474-.507-.668.032-.174.049-.353.042-.536-.025-.59-.252-1.149-.647-1.575-.121-.13-.257-.243-.404-.338.023-.198.023-.399-.012-.598-.105-.597-.401-1.136-.844-1.528-.162-.143-.345-.26-.543-.348-.004-.187-.027-.373-.076-.554-.147-.538-.455-1.017-.883-1.362-.186-.15-.393-.272-.614-.365-.002-.097-.012-.193-.034-.288A3.002 3.002 0 0012.504 0z"/></svg>
+                    <span class="text-white font-semibold text-[15px]">macOS</span>
+                </div>
+                <div class="code-block rounded-lg p-3 font-mono text-[12px] mb-3">
+                    <p><span class="text-mint">$</span> <span class="text-white">brew install</span> yt-dlp</p>
+                </div>
+                <p class="text-dim text-[12px]">或下载 <a href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos" class="text-accent hover:underline">yt-dlp_macos</a>（通用二进制）</p>
+            </div>
+
+            <div class="card bg-surface border border-border rounded-xl p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <svg class="w-6 h-6 text-mint" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.311.002-.465.014-.612.047-1.194.282-1.673.664-.474.38-.83.886-1.031 1.472-.062.186-.105.379-.126.579-.118-.003-.236.004-.356.024-.768.13-1.452.58-1.876 1.235-.417.645-.564 1.416-.395 2.172.034.155.085.307.15.452-.262.098-.511.225-.738.396-.626.472-1.055 1.166-1.17 1.942-.116.775.062 1.564.517 2.15.133.172.288.326.459.461-.094.265-.161.542-.191.827-.098.916.217 1.835.866 2.52.17.18.361.333.568.46-.025.125-.041.252-.043.38-.014.77.298 1.51.859 2.04.278.262.609.459.968.581-.002.061.003.122.015.183.098.604.377 1.162.818 1.592.44.432 1.01.716 1.636.81.074.013.149.02.225.024-.002.082.006.163.025.243.116.484.358.926.714 1.294.354.37.812.624 1.335.742.065.015.131.025.198.03.005.082.02.164.046.242.137.418.374.791.7 1.087.325.297.741.51 1.21.617.065.016.13.025.197.029.01.078.03.155.06.229.168.408.428.76.773 1.024.347.263.778.44 1.26.516h.003c.078.013.157.017.236.017.178 0 .354-.025.525-.076l.002.001c.471-.15.876-.463 1.148-.867.27-.404.395-.877.355-1.352-.012-.142-.041-.281-.086-.414.12-.043.236-.097.345-.164.554-.339.93-.871 1.042-1.476.113-.606-.017-1.228-.369-1.73-.065-.093-.139-.18-.221-.259.103-.159.19-.33.256-.514.212-.596.168-1.252-.115-1.814-.125-.249-.297-.474-.507-.668.032-.174.049-.353.042-.536-.025-.59-.252-1.149-.647-1.575-.121-.13-.257-.243-.404-.338.023-.198.023-.399-.012-.598-.105-.597-.401-1.136-.844-1.528-.162-.143-.345-.26-.543-.348-.004-.187-.027-.373-.076-.554-.147-.538-.455-1.017-.883-1.362-.186-.15-.393-.272-.614-.365-.002-.097-.012-.193-.034-.288A3.002 3.002 0 0012.504 0z"/></svg>
+                    <span class="text-white font-semibold text-[15px]">Linux / pip</span>
+                </div>
+                <div class="code-block rounded-lg p-3 font-mono text-[12px] mb-3">
+                    <p><span class="text-mint">$</span> <span class="text-white">pip install</span> yt-dlp</p>
+                </div>
+                <p class="text-dim text-[12px]">或下载 <a href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" class="text-accent hover:underline">yt-dlp</a>（平台无关二进制）</p>
+            </div>
+        </div>
+
+        <!-- 更新与依赖 -->
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-mint" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    更新
+                </h3>
+                <div class="code-block rounded-lg p-3 font-mono text-[12px] mb-3">
+                    <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-U</span></p>
+                    <p class="text-dim mt-1"># 切换到 nightly 渠道</p>
+                    <p><span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">--update-to</span> nightly</p>
+                </div>
+                <p class="text-dim text-[13px] leading-relaxed">提供三个发布渠道：<span class="text-white">stable</span>（稳定版）、<span class="text-white">nightly</span>（每日构建，推荐普通用户）和 <span class="text-white">master</span>（最新代码）。</p>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                    依赖项
+                </h3>
+                <ul class="text-[13px] space-y-1.5">
+                    <li class="flex items-start gap-2"><span class="text-accent mt-1">●</span><span><span class="text-white">Python 3.10+</span> — 运行环境</span></li>
+                    <li class="flex items-start gap-2"><span class="text-mint mt-1">●</span><span><span class="text-white">ffmpeg / ffprobe</span> — 合并与后处理（强烈推荐）</span></li>
+                    <li class="flex items-start gap-2"><span class="text-amber mt-1">●</span><span><span class="text-white">yt-dlp-ejs + JS 运行时</span> — 完整 YouTube 支持</span></li>
+                    <li class="flex items-start gap-2"><span class="text-dim mt-1">●</span><span><span class="text-white">certifi, brotli, requests</span> — 网络增强（可选）</span></li>
+                    <li class="flex items-start gap-2"><span class="text-dim mt-1">●</span><span><span class="text-white">curl_cffi</span> — 浏览器模拟（TLS 指纹绕过）</span></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 使用方式 -->
+    <section id="usage" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">02 / 使用</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">基本用法</h2>
+        </div>
+
+        <div class="code-block rounded-xl p-5 font-mono text-[13px] leading-relaxed mb-8">
+            <p class="text-white">yt-dlp <span class="text-dim">[OPTIONS]</span> <span class="text-dim">[--]</span> <span class="text-amber">URL [URL...]</span></p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-4">常用示例</h3>
+                <div class="space-y-4 text-[13px]">
+                    <div>
+                        <p class="text-dim mb-1">下载最佳质量视频</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-amber">URL</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">提取音频为 MP3</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-x --audio-format</span> mp3 <span class="text-amber">URL</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">限制分辨率不超过 720p</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-S</span> <span class="text-amber">"height:720"</span> URL
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">查看可用格式列表</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-F</span> <span class="text-amber">URL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-4">进阶示例</h3>
+                <div class="space-y-4 text-[13px]">
+                    <div>
+                        <p class="text-dim mb-1">下载播放列表，每个视频存入单独文件夹</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">-o</span> <span class="text-amber">"%(playlist)s/%(title)s.%(ext)s"</span> URL
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">使用代理 + 8 线程并行下载片段</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">--proxy</span> socks5://... <span class="text-accent">-N</span> 8 URL
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">从浏览器获取 Cookie</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">--cookies-from-browser</span> chrome URL
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim mb-1">下载时间范围片段（需要 ffmpeg）</p>
+                        <div class="code-block rounded-lg p-3 font-mono text-[12px]">
+                            <span class="text-mint">$</span> <span class="text-white">yt-dlp</span> <span class="text-accent">--download-sections</span> <span class="text-amber">"*10:15-inf"</span> URL
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 选项参考 -->
+    <section id="options" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-8">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">03 / 选项</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter mb-3">命令行选项</h2>
+            <p class="text-dim text-[14px]">点击展开各分类查看完整选项说明。</p>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="relative mb-8">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="optionSearch" type="text" placeholder="搜索选项... 例如 proxy, format, cookie" class="w-full bg-surface border border-border rounded-lg pl-10 pr-4 py-2.5 text-[13px] text-white placeholder:text-dim focus:outline-none focus:border-accent/50 transition-colors">
+        </div>
+
+        <div id="optionsContainer" class="space-y-3">
+            <!-- 常规选项 -->
+            <details class="option-group bg-surface border border-border rounded-xl" open>
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">常规选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">General</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-h, --help</code><span class="text-dim ml-3">打印帮助文本并退出</span></div>
+                    <div class="option-item"><code class="text-accent">--version</code><span class="text-dim ml-3">打印程序版本并退出</span></div>
+                    <div class="option-item"><code class="text-accent">-U, --update</code><span class="text-dim ml-3">更新到最新版本</span></div>
+                    <div class="option-item"><code class="text-accent">--update-to [CHANNEL]@[TAG]</code><span class="text-dim ml-3">升级/降级到特定版本</span></div>
+                    <div class="option-item"><code class="text-accent">-i, --ignore-errors</code><span class="text-dim ml-3">忽略下载和后处理错误</span></div>
+                    <div class="option-item"><code class="text-accent">--abort-on-error</code><span class="text-dim ml-3">发生错误时中止下载</span></div>
+                    <div class="option-item"><code class="text-accent">--flat-playlist</code><span class="text-dim ml-3">不提取播放列表的视频详情</span></div>
+                    <div class="option-item"><code class="text-accent">--live-from-start</code><span class="text-dim ml-3">从开始下载直播流（实验性）</span></div>
+                    <div class="option-item"><code class="text-accent">--wait-for-video MIN[-MAX]</code><span class="text-dim ml-3">等待计划的直播变得可用</span></div>
+                    <div class="option-item"><code class="text-accent">--mark-watched</code><span class="text-dim ml-3">标记视频为已观看</span></div>
+                    <div class="option-item"><code class="text-accent">--compat-options OPTS</code><span class="text-dim ml-3">youtube-dl 兼容性选项</span></div>
+                </div>
+            </details>
+
+            <!-- 网络选项 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">网络选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Network</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">--proxy URL</code><span class="text-dim ml-3">使用 HTTP/HTTPS/SOCKS 代理</span></div>
+                    <div class="option-item"><code class="text-accent">--socket-timeout SECONDS</code><span class="text-dim ml-3">连接超时时间</span></div>
+                    <div class="option-item"><code class="text-accent">--source-address IP</code><span class="text-dim ml-3">绑定客户端 IP 地址</span></div>
+                    <div class="option-item"><code class="text-accent">--impersonate CLIENT[:OS]</code><span class="text-dim ml-3">模拟浏览器请求</span></div>
+                    <div class="option-item"><code class="text-accent">-4, --force-ipv4</code><span class="text-dim ml-3">强制使用 IPv4</span></div>
+                    <div class="option-item"><code class="text-accent">-6, --force-ipv6</code><span class="text-dim ml-3">强制使用 IPv6</span></div>
+                    <div class="option-item"><code class="text-accent">--geo-verification-proxy URL</code><span class="text-dim ml-3">地理限制验证代理</span></div>
+                    <div class="option-item"><code class="text-accent">--xff VALUE</code><span class="text-dim ml-3">伪造 X-Forwarded-For 标头</span></div>
+                </div>
+            </details>
+
+            <!-- 视频选择 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">视频选择</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Video Selection</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-I, --playlist-items ITEM_SPEC</code><span class="text-dim ml-3">选择播放列表中的特定项目</span></div>
+                    <div class="option-item"><code class="text-accent">--min-filesize SIZE</code><span class="text-dim ml-3">最小文件大小限制</span></div>
+                    <div class="option-item"><code class="text-accent">--max-filesize SIZE</code><span class="text-dim ml-3">最大文件大小限制</span></div>
+                    <div class="option-item"><code class="text-accent">--date DATE</code><span class="text-dim ml-3">仅下载指定日期上传的视频</span></div>
+                    <div class="option-item"><code class="text-accent">--match-filters FILTER</code><span class="text-dim ml-3">通用视频过滤器</span></div>
+                    <div class="option-item"><code class="text-accent">--no-playlist</code><span class="text-dim ml-3">仅下载视频，不下载播放列表</span></div>
+                    <div class="option-item"><code class="text-accent">--download-archive FILE</code><span class="text-dim ml-3">跳过已下载过的视频</span></div>
+                    <div class="option-item"><code class="text-accent">--max-downloads NUMBER</code><span class="text-dim ml-3">最大下载数量</span></div>
+                    <div class="option-item"><code class="text-accent">--age-limit YEARS</code><span class="text-dim ml-3">年龄限制过滤</span></div>
+                </div>
+            </details>
+
+            <!-- 下载选项 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">下载选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Download</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-N, --concurrent-fragments N</code><span class="text-dim ml-3">并发下载片段数（默认 1）</span></div>
+                    <div class="option-item"><code class="text-accent">-r, --limit-rate RATE</code><span class="text-dim ml-3">最大下载速率，如 50K 或 4.2M</span></div>
+                    <div class="option-item"><code class="text-accent">-R, --retries RETRIES</code><span class="text-dim ml-3">重试次数（默认 10）</span></div>
+                    <div class="option-item"><code class="text-accent">--download-sections REGEX</code><span class="text-dim ml-3">按时间范围或章节下载</span></div>
+                    <div class="option-item"><code class="text-accent">--downloader NAME</code><span class="text-dim ml-3">使用外部下载器（aria2c, curl 等）</span></div>
+                    <div class="option-item"><code class="text-accent">--hls-use-mpegts</code><span class="text-dim ml-3">HLS 使用 mpegts 容器</span></div>
+                    <div class="option-item"><code class="text-accent">--playlist-random</code><span class="text-dim ml-3">随机顺序下载播放列表</span></div>
+                </div>
+            </details>
+
+            <!-- 文件系统 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">文件系统选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Filesystem</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-o, --output TEMPLATE</code><span class="text-dim ml-3">输出文件名模板</span></div>
+                    <div class="option-item"><code class="text-accent">-P, --paths [TYPES:]PATH</code><span class="text-dim ml-3">下载路径</span></div>
+                    <div class="option-item"><code class="text-accent">--restrict-filenames</code><span class="text-dim ml-3">限制为 ASCII 文件名</span></div>
+                    <div class="option-item"><code class="text-accent">-w, --no-overwrites</code><span class="text-dim ml-3">不覆盖已有文件</span></div>
+                    <div class="option-item"><code class="text-accent">-c, --continue</code><span class="text-dim ml-3">恢复部分下载</span></div>
+                    <div class="option-item"><code class="text-accent">--write-info-json</code><span class="text-dim ml-3">写入视频元数据 JSON</span></div>
+                    <div class="option-item"><code class="text-accent">--cookies FILE</code><span class="text-dim ml-3">使用 Cookie 文件</span></div>
+                    <div class="option-item"><code class="text-accent">--cookies-from-browser BROWSER</code><span class="text-dim ml-3">从浏览器自动提取 Cookie</span></div>
+                    <div class="option-item"><code class="text-accent">-a, --batch-file FILE</code><span class="text-dim ml-3">从文件批量读取 URL</span></div>
+                </div>
+            </details>
+
+            <!-- 视频格式 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">视频格式选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Format</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-f, --format FORMAT</code><span class="text-dim ml-3">视频格式代码</span></div>
+                    <div class="option-item"><code class="text-accent">-S, --format-sort SORTORDER</code><span class="text-dim ml-3">格式排序字段</span></div>
+                    <div class="option-item"><code class="text-accent">-F, --list-formats</code><span class="text-dim ml-3">列出可用格式</span></div>
+                    <div class="option-item"><code class="text-accent">--merge-output-format FORMAT</code><span class="text-dim ml-3">合并时使用的容器格式</span></div>
+                    <div class="option-item"><code class="text-accent">--video-multistreams</code><span class="text-dim ml-3">允许多视频流合并</span></div>
+                    <div class="option-item"><code class="text-accent">--audio-multistreams</code><span class="text-dim ml-3">允许多音频流合并</span></div>
+                    <div class="option-item"><code class="text-accent">--prefer-free-formats</code><span class="text-dim ml-3">优先选择免费容器</span></div>
+                </div>
+            </details>
+
+            <!-- 字幕 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">字幕选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Subtitle</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">--write-subs</code><span class="text-dim ml-3">写入字幕文件</span></div>
+                    <div class="option-item"><code class="text-accent">--write-auto-subs</code><span class="text-dim ml-3">写入自动生成的字幕</span></div>
+                    <div class="option-item"><code class="text-accent">--list-subs</code><span class="text-dim ml-3">列出可用字幕</span></div>
+                    <div class="option-item"><code class="text-accent">--sub-format FORMAT</code><span class="text-dim ml-3">字幕格式（srt / ass / vtt）</span></div>
+                    <div class="option-item"><code class="text-accent">--sub-langs LANGS</code><span class="text-dim ml-3">下载指定语言的字幕</span></div>
+                </div>
+            </details>
+
+            <!-- 后处理 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">后处理选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Post-Processing</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-x, --extract-audio</code><span class="text-dim ml-3">转换为仅音频文件</span></div>
+                    <div class="option-item"><code class="text-accent">--audio-format FORMAT</code><span class="text-dim ml-3">音频格式（mp3, aac, flac 等）</span></div>
+                    <div class="option-item"><code class="text-accent">--audio-quality QUALITY</code><span class="text-dim ml-3">音频质量 0（最佳）到 10</span></div>
+                    <div class="option-item"><code class="text-accent">--remux-video FORMAT</code><span class="text-dim ml-3">重新封装视频容器</span></div>
+                    <div class="option-item"><code class="text-accent">--embed-subs</code><span class="text-dim ml-3">嵌入字幕</span></div>
+                    <div class="option-item"><code class="text-accent">--embed-thumbnail</code><span class="text-dim ml-3">嵌入缩略图作为封面</span></div>
+                    <div class="option-item"><code class="text-accent">--embed-metadata</code><span class="text-dim ml-3">嵌入元数据到文件</span></div>
+                    <div class="option-item"><code class="text-accent">--split-chapters</code><span class="text-dim ml-3">按章节拆分视频</span></div>
+                    <div class="option-item"><code class="text-accent">--exec CMD</code><span class="text-dim ml-3">下载后执行命令</span></div>
+                    <div class="option-item"><code class="text-accent">--convert-subs FORMAT</code><span class="text-dim ml-3">转换字幕格式</span></div>
+                    <div class="option-item"><code class="text-accent">--sponsorblock-mark CATS</code><span class="text-dim ml-3">标记 SponsorBlock 章节</span></div>
+                    <div class="option-item"><code class="text-accent">--sponsorblock-remove CATS</code><span class="text-dim ml-3">移除赞助商片段</span></div>
+                </div>
+            </details>
+
+            <!-- 身份验证 -->
+            <details class="option-group bg-surface border border-border rounded-xl">
+                <summary class="flex items-center gap-3 p-4 hover:bg-surfaceHover rounded-xl transition-colors">
+                    <svg class="chevron w-4 h-4 text-dim" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <span class="text-white font-semibold text-[14px]">身份验证选项</span>
+                    <span class="text-[11px] text-dim font-mono bg-bg px-2 py-0.5 rounded">Auth</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 text-[13px] font-mono option-list">
+                    <div class="option-item"><code class="text-accent">-u, --username USERNAME</code><span class="text-dim ml-3">帐户用户名</span></div>
+                    <div class="option-item"><code class="text-accent">-p, --password PASSWORD</code><span class="text-dim ml-3">帐户密码</span></div>
+                    <div class="option-item"><code class="text-accent">-2, --twofactor CODE</code><span class="text-dim ml-3">双因素验证代码</span></div>
+                    <div class="option-item"><code class="text-accent">-n, --netrc</code><span class="text-dim ml-3">使用 .netrc 身份验证</span></div>
+                    <div class="option-item"><code class="text-accent">--video-password PASSWORD</code><span class="text-dim ml-3">视频密码</span></div>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 配置 -->
+    <section id="config" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">04 / 配置</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">配置文件</h2>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+                <p class="text-slate text-[14px] leading-relaxed mb-6">
+                    yt-dlp 可以通过配置文件预设常用选项。配置文件按以下优先级顺序加载：
+                </p>
+                <div class="space-y-3 text-[13px]">
+                    <div class="flex items-start gap-3 bg-surface border border-border rounded-lg p-3">
+                        <span class="text-accent font-mono font-bold text-[12px] mt-0.5">1</span>
+                        <div><span class="text-white font-medium">主配置</span><br><span class="text-dim">通过 <code class="text-accent/70">--config-locations</code> 指定的文件</span></div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-surface border border-border rounded-lg p-3">
+                        <span class="text-accent font-mono font-bold text-[12px] mt-0.5">2</span>
+                        <div><span class="text-white font-medium">便携式配置</span><br><span class="text-dim">二进制文件所在目录中的 <code class="text-accent/70">yt-dlp.conf</code></span></div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-surface border border-border rounded-lg p-3">
+                        <span class="text-accent font-mono font-bold text-[12px] mt-0.5">3</span>
+                        <div><span class="text-white font-medium">主目录配置</span><br><span class="text-dim">当前目录或 <code class="text-accent/70">-P</code> 指定路径中的 <code class="text-accent/70">yt-dlp.conf</code></span></div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-surface border border-border rounded-lg p-3">
+                        <span class="text-accent font-mono font-bold text-[12px] mt-0.5">4</span>
+                        <div>
+                            <span class="text-white font-medium">用户配置</span><br>
+                            <span class="text-dim font-mono text-[11px]">
+                                Windows: %APPDATA%\yt-dlp\config<br>
+                                Linux: ~/.config/yt-dlp/config
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-[15px] mb-4">配置文件示例</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed">
+                    <p class="text-dim"># 以 # 开头的行是注释</p>
+                    <br>
+                    <p class="text-dim"># 始终提取音频</p>
+                    <p class="text-accent">-x</p>
+                    <br>
+                    <p class="text-dim"># 使用代理</p>
+                    <p class="text-accent">--proxy</p> <span class="text-amber">127.0.0.1:3128</span>
+                    <br><br>
+                    <p class="text-dim"># 保存到 YouTube 目录</p>
+                    <p class="text-accent">-o</p> <span class="text-amber">~/YouTube/%(title)s.%(ext)s</span>
+                    <br><br>
+                    <p class="text-dim"># 嵌入缩略图和元数据</p>
+                    <p class="text-accent">--embed-thumbnail</p>
+                    <p class="text-accent">--embed-metadata</p>
+                </div>
+
+                <div class="mt-6 bg-amber/5 border border-amber/20 rounded-lg p-4">
+                    <p class="text-amber text-[13px] font-medium mb-1">⚠ 注意</p>
+                    <p class="text-dim text-[12px] leading-relaxed">配置文件中的选项与命令行完全相同。在 <code class="text-amber/70">-</code> 或 <code class="text-amber/70">--</code> 后不能有空格。使用 <code class="text-amber/70">--ignore-config</code> 禁用所有配置文件。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 输出模板 -->
+    <section id="output" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">05 / 输出模板</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">输出模板</h2>
+        </div>
+
+        <p class="text-slate text-[14px] leading-relaxed mb-8 max-w-[70ch]">
+            使用 <code class="text-accent font-mono text-[13px]">-o</code> 选项自定义输出文件名。模板使用 <code class="text-accent font-mono text-[13px]">%(字段名)s</code> 语法引用视频元数据。当前默认模板是 <code class="text-accent font-mono text-[13px]">%(title)s [%(id)s].%(ext)s</code>。
+        </p>
+
+        <div class="grid lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-4">常用字段</h3>
+                <div class="grid grid-cols-2 gap-2 text-[12px] font-mono">
+                    <div class="text-accent">%(id)s</div><div class="text-dim">视频标识符</div>
+                    <div class="text-accent">%(title)s</div><div class="text-dim">视频标题</div>
+                    <div class="text-accent">%(ext)s</div><div class="text-dim">文件扩展名</div>
+                    <div class="text-accent">%(uploader)s</div><div class="text-dim">上传者名称</div>
+                    <div class="text-accent">%(upload_date)s</div><div class="text-dim">上传日期 (UTC)</div>
+                    <div class="text-accent">%(duration)s</div><div class="text-dim">时长（秒）</div>
+                    <div class="text-accent">%(view_count)s</div><div class="text-dim">观看次数</div>
+                    <div class="text-accent">%(playlist)s</div><div class="text-dim">播放列表名称</div>
+                    <div class="text-accent">%(playlist_index)s</div><div class="text-dim">播放列表索引</div>
+                    <div class="text-accent">%(channel)s</div><div class="text-dim">频道名称</div>
+                    <div class="text-accent">%(resolution)s</div><div class="text-dim">分辨率</div>
+                    <div class="text-accent">%(autonumber)s</div><div class="text-dim">自动编号</div>
+                </div>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-6">
+                <h3 class="text-white font-semibold text-[15px] mb-4">示例</h3>
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-dim text-[12px] mb-1">按播放列表分目录</p>
+                        <div class="code-block rounded-lg p-2.5 font-mono text-[11px]">
+                            <span class="text-accent">-o</span> <span class="text-amber">"%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s"</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim text-[12px] mb-1">按上传年份分目录</p>
+                        <div class="code-block rounded-lg p-2.5 font-mono text-[11px]">
+                            <span class="text-accent">-o</span> <span class="text-amber">"%(upload_date>%Y)s/%(title)s.%(ext)s"</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim text-[12px] mb-1">频道/播放列表层级结构</p>
+                        <div class="code-block rounded-lg p-2.5 font-mono text-[11px]">
+                            <span class="text-accent">-o</span> <span class="text-amber">"%(uploader)s/%(playlist)s/%(title)s.%(ext)s"</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-dim text-[12px] mb-1">高级：日期格式化 + 算术 + 默认值</p>
+                        <div class="code-block rounded-lg p-2.5 font-mono text-[11px]">
+                            <span class="text-amber">%(release_date>%Y,upload_date>%Y|Unknown)s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-mint/5 border border-mint/20 rounded-lg p-4">
+            <p class="text-mint text-[13px] font-medium mb-1">💡 提示</p>
+            <p class="text-dim text-[12px] leading-relaxed">使用 <code class="text-mint/70 font-mono">yt-dlp -j URL</code> 查看特定视频的所有可用字段。支持对象遍历（<code class="text-mint/70 font-mono">%(tags.0)s</code>）、算术运算（<code class="text-mint/70 font-mono">%(playlist_index+10)03d</code>）和日期格式化（<code class="text-mint/70 font-mono">%(upload_date>%Y-%m-%d)s</code>）。</p>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 格式选择 -->
+    <section id="format" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">06 / 格式选择</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">格式选择</h2>
+        </div>
+
+        <p class="text-slate text-[14px] leading-relaxed mb-8 max-w-[70ch]">
+            默认情况下，yt-dlp 下载最佳可用质量（<code class="text-accent font-mono text-[13px]">-f bv*+ba/b</code>）。使用 <code class="text-accent font-mono text-[13px]">-f</code> 精确选择格式，使用 <code class="text-accent font-mono text-[13px]">-S</code> 自定义排序规则。
+        </p>
+
+        <div class="grid lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <h3 class="text-white font-semibold text-[14px] mb-3">格式选择符</h3>
+                <div class="space-y-2 text-[12px] font-mono">
+                    <div><span class="text-mint">b / best</span> <span class="text-dim">— 最佳音视频组合</span></div>
+                    <div><span class="text-mint">bv / bestvideo</span> <span class="text-dim">— 最佳仅视频</span></div>
+                    <div><span class="text-mint">ba / bestaudio</span> <span class="text-dim">— 最佳仅音频</span></div>
+                    <div><span class="text-mint">bv*</span> <span class="text-dim">— 最佳含视频（可含音频）</span></div>
+                    <div><span class="text-mint">w / worst</span> <span class="text-dim">— 最差质量</span></div>
+                    <div><span class="text-mint">all</span> <span class="text-dim">— 所有格式</span></div>
+                </div>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <h3 class="text-white font-semibold text-[14px] mb-3">过滤器</h3>
+                <div class="space-y-2 text-[12px] font-mono">
+                    <div><span class="text-amber">[height&lt;=720]</span> <span class="text-dim">— 不超过 720p</span></div>
+                    <div><span class="text-amber">[ext=mp4]</span> <span class="text-dim">— 仅 mp4</span></div>
+                    <div><span class="text-amber">[vcodec^=avc]</span> <span class="text-dim">— H.264 编解码器</span></div>
+                    <div><span class="text-amber">[filesize&lt;50M]</span> <span class="text-dim">— 小于 50MB</span></div>
+                    <div><span class="text-amber">[tbr&gt;500]</span> <span class="text-dim">— 比特率 &gt; 500kbps</span></div>
+                    <div><span class="text-amber">[protocol^=http]</span> <span class="text-dim">— HTTP 协议</span></div>
+                </div>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <h3 class="text-white font-semibold text-[14px] mb-3">排序字段 (-S)</h3>
+                <div class="space-y-2 text-[12px] font-mono">
+                    <div><span class="text-[#7c8cf8]">res</span> <span class="text-dim">— 分辨率</span></div>
+                    <div><span class="text-[#7c8cf8]">fps</span> <span class="text-dim">— 帧率</span></div>
+                    <div><span class="text-[#7c8cf8]">vcodec</span> <span class="text-dim">— 视频编解码器</span></div>
+                    <div><span class="text-[#7c8cf8]">acodec</span> <span class="text-dim">— 音频编解码器</span></div>
+                    <div><span class="text-[#7c8cf8]">size</span> <span class="text-dim">— 文件大小</span></div>
+                    <div><span class="text-[#7c8cf8]">ext</span> <span class="text-dim">— 文件扩展名</span></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="text-white font-semibold text-[15px] mb-4">格式选择示例</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="code-block rounded-lg p-4 font-mono text-[12px]">
+                <p class="text-dim mb-1"># 下载最佳 mp4，回退到最佳可用</p>
+                <p><span class="text-accent">-f</span> <span class="text-amber">"bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4] / bv*+ba/b"</span></p>
+            </div>
+            <div class="code-block rounded-lg p-4 font-mono text-[12px]">
+                <p class="text-dim mb-1"># 分辨率最大但不超过 720p</p>
+                <p><span class="text-accent">-S</span> <span class="text-amber">"height:720"</span></p>
+            </div>
+            <div class="code-block rounded-lg p-4 font-mono text-[12px]">
+                <p class="text-dim mb-1"># 下载最小文件</p>
+                <p><span class="text-accent">-S</span> <span class="text-amber">"+size,+br"</span></p>
+            </div>
+            <div class="code-block rounded-lg p-4 font-mono text-[12px]">
+                <p class="text-dim mb-1"># 文件大小最接近 50MB</p>
+                <p><span class="text-accent">-f</span> b <span class="text-accent">-S</span> <span class="text-amber">"filesize~50M"</span></p>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 插件 -->
+    <section id="plugins" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">07 / 插件</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">插件系统</h2>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+                <p class="text-slate text-[14px] leading-relaxed mb-6">
+                    yt-dlp 支持通过外部文件加载<span class="text-white">提取器插件</span>和<span class="text-white">后处理器插件</span>。插件从 <code class="text-accent font-mono text-[13px]">yt_dlp_plugins</code> 命名空间包中加载。
+                </p>
+
+                <div class="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-6">
+                    <p class="text-accent text-[13px] font-medium mb-1">⚠ 安全警告</p>
+                    <p class="text-dim text-[12px] leading-relaxed">所有插件都会被导入，不会对插件代码进行安全检查。请仅使用您信任的插件！</p>
+                </div>
+
+                <h3 class="text-white font-semibold text-[14px] mb-3">安装位置</h3>
+                <div class="space-y-2 text-[12px]">
+                    <div class="bg-surface border border-border rounded-lg p-3 font-mono">
+                        <p class="text-dim mb-1"># Windows 用户插件（推荐）</p>
+                        <p class="text-amber">%APPDATA%\yt-dlp\plugins\&lt;包名&gt;\yt_dlp_plugins\</p>
+                    </div>
+                    <div class="bg-surface border border-border rounded-lg p-3 font-mono">
+                        <p class="text-dim mb-1"># Linux/macOS 用户插件（推荐）</p>
+                        <p class="text-amber">~/.config/yt-dlp/plugins/&lt;包名&gt;/yt_dlp_plugins/</p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-[14px] mb-3">目录结构</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed mb-6">
+                    <p class="text-dim">yt_dlp_plugins/</p>
+                    <p class="text-dim">├── <span class="text-mint">extractor/</span></p>
+                    <p class="text-dim">│   └── <span class="text-white">myplugin.py</span></p>
+                    <p class="text-dim">└── <span class="text-amber">postprocessor/</span></p>
+                    <p class="text-dim">    └── <span class="text-white">myplugin.py</span></p>
+                </div>
+
+                <h3 class="text-white font-semibold text-[14px] mb-3">使用方式</h3>
+                <ul class="text-[13px] space-y-2">
+                    <li class="flex items-start gap-2"><span class="text-mint">→</span><span><span class="text-white">提取器插件</span>：自动识别匹配的 URL，无需手动启用</span></li>
+                    <li class="flex items-start gap-2"><span class="text-amber">→</span><span><span class="text-white">后处理器插件</span>：使用 <code class="text-accent font-mono text-[12px]">--use-postprocessor NAME</code> 调用</span></li>
+                    <li class="flex items-start gap-2"><span class="text-dim">→</span><span>也支持 pip 安装和 .zip/.egg/.whl 归档</span></li>
+                    <li class="flex items-start gap-2"><span class="text-dim">→</span><span>运行 <code class="text-accent font-mono text-[12px]">yt-dlp --verbose</code> 验证插件是否加载</span></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 嵌入 -->
+    <section id="embed" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">08 / 嵌入</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">Python 嵌入</h2>
+        </div>
+
+        <p class="text-slate text-[14px] leading-relaxed mb-8 max-w-[70ch]">
+            yt-dlp 可以作为 Python 库直接嵌入到你的应用程序中，提供比命令行更灵活的控制方式。
+        </p>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-white font-semibold text-[14px] mb-3">基本下载</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed">
+                    <p><span class="text-accent">from</span> <span class="text-white">yt_dlp</span> <span class="text-accent">import</span> YoutubeDL</p>
+                    <br>
+                    <p><span class="text-dim">URLS</span> = [<span class="text-amber">'https://...'</span>]</p>
+                    <p><span class="text-accent">with</span> YoutubeDL() <span class="text-accent">as</span> ydl:</p>
+                    <p>    ydl.download(URLS)</p>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-[14px] mb-3">提取音频</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed">
+                    <p><span class="text-dim">ydl_opts</span> = {</p>
+                    <p>    <span class="text-amber">'format'</span>: <span class="text-amber">'m4a/bestaudio/best'</span>,</p>
+                    <p>    <span class="text-amber">'postprocessors'</span>: [{</p>
+                    <p>        <span class="text-amber">'key'</span>: <span class="text-amber">'FFmpegExtractAudio'</span>,</p>
+                    <p>        <span class="text-amber">'preferredcodec'</span>: <span class="text-amber">'m4a'</span>,</p>
+                    <p>    }]</p>
+                    <p>}</p>
+                    <p><span class="text-accent">with</span> YoutubeDL(ydl_opts) <span class="text-accent">as</span> ydl:</p>
+                    <p>    ydl.download(URLS)</p>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-[14px] mb-3">提取信息（不下载）</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed">
+                    <p><span class="text-accent">import</span> json, yt_dlp</p>
+                    <br>
+                    <p><span class="text-accent">with</span> yt_dlp.YoutubeDL() <span class="text-accent">as</span> ydl:</p>
+                    <p>    info = ydl.extract_info(URL,</p>
+                    <p>        download=<span class="text-mint">False</span>)</p>
+                    <p>    <span class="text-accent">print</span>(json.dumps(</p>
+                    <p>        ydl.sanitize_info(info)))</p>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-[14px] mb-3">过滤视频</h3>
+                <div class="code-block rounded-xl p-5 font-mono text-[12px] leading-relaxed">
+                    <p><span class="text-accent">def</span> <span class="text-mint">longer_than_a_minute</span>(info, *,</p>
+                    <p>        incomplete):</p>
+                    <p>    duration = info.get(<span class="text-amber">'duration'</span>)</p>
+                    <p>    <span class="text-accent">if</span> duration <span class="text-accent">and</span> duration &lt; <span class="text-[#7c8cf8]">60</span>:</p>
+                    <p>        <span class="text-accent">return</span> <span class="text-amber">'Video too short'</span></p>
+                    <br>
+                    <p>ydl_opts = {</p>
+                    <p>    <span class="text-amber">'match_filter'</span>:</p>
+                    <p>        longer_than_a_minute,</p>
+                    <p>}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="border-t border-border"></div></div>
+
+    <!-- 与 youtube-dl 差异 -->
+    <section id="changes" class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-20">
+        <div class="mb-12">
+            <span class="text-[11px] font-mono text-accent tracking-widest uppercase mb-3 block">09 / 差异</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tighter">与 youtube-dl 的差异</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <div class="text-mint text-[13px] font-medium mb-2">✦ 新功能</div>
+                <ul class="text-[12px] text-dim space-y-1.5 leading-relaxed">
+                    <li>SponsorBlock 集成</li>
+                    <li>格式排序系统（-S）</li>
+                    <li>从浏览器获取 Cookie</li>
+                    <li>多线程片段下载（-N）</li>
+                    <li>下载时间范围片段</li>
+                    <li>按章节拆分视频</li>
+                    <li>插件系统</li>
+                    <li>自动更新器</li>
+                </ul>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <div class="text-amber text-[13px] font-medium mb-2">⚡ 默认行为变化</div>
+                <ul class="text-[12px] text-dim space-y-1.5 leading-relaxed">
+                    <li>仅支持 Python 3.10+</li>
+                    <li>默认模板：%(title)s [%(id)s].%(ext)s</li>
+                    <li>更智能的格式排序（优先分辨率+编解码器）</li>
+                    <li>默认不中止错误</li>
+                    <li>实时聊天视为字幕</li>
+                    <li>频道 URL 下载所有内容</li>
+                    <li>默认不应用服务器修改时间</li>
+                </ul>
+            </div>
+            <div class="bg-surface border border-border rounded-xl p-5">
+                <div class="text-accent text-[13px] font-medium mb-2">🔧 YouTube 改进</div>
+                <ul class="text-[12px] text-dim space-y-1.5 leading-relaxed">
+                    <li>修复 n-sig 限速问题</li>
+                    <li>支持 Clips、Stories、Mixes</li>
+                    <li>搜索支持（含过滤器）</li>
+                    <li>频道特定搜索</li>
+                    <li>直播从开始下载</li>
+                    <li>频道 URL 含 Shorts 和直播</li>
+                    <li>PO Token 支持</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <span class="text-dim text-[13px]">yt-dlp</span>
+                </div>
+                <div class="flex items-center gap-6 text-[13px]">
+                    <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" class="text-dim hover:text-white transition-colors">GitHub</a>
+                    <a href="https://github.com/yt-dlp/yt-dlp/wiki" target="_blank" class="text-dim hover:text-white transition-colors">Wiki</a>
+                    <a href="https://discord.gg/H5MNcFW63r" target="_blank" class="text-dim hover:text-white transition-colors">Discord</a>
+                    <a href="https://pypi.org/project/yt-dlp" target="_blank" class="text-dim hover:text-white transition-colors">PyPI</a>
+                </div>
+                <p class="text-dim text-[12px]">基于 README.md 文档翻译整理</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 移动端菜单
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('open'));
+        document.querySelectorAll('.mobile-nav').forEach(link => {
+            link.addEventListener('click', () => mobileMenu.classList.remove('open'));
+        });
+
+        // 选项搜索
+        const searchInput = document.getElementById('optionSearch');
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll('.option-item').forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (!query || text.includes(query)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            if (query) {
+                document.querySelectorAll('.option-group').forEach(group => {
+                    const visibleItems = group.querySelectorAll('.option-item:not([style*="display: none"])');
+                    if (visibleItems.length > 0) {
+                        group.open = true;
+                        group.style.display = '';
+                    } else {
+                        group.style.display = 'none';
+                    }
+                });
+            } else {
+                document.querySelectorAll('.option-group').forEach(group => {
+                    group.style.display = '';
+                });
+            }
+        });
+
+        // 滚动动画
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('section[id]').forEach(section => {
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(20px)';
+            section.style.transition = 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+            observer.observe(section);
+        });
+
+        // 导航高亮
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('section[id]');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 100;
+                if (scrollY >= sectionTop) current = section.getAttribute('id');
+            });
+            navLinks.forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+            });
+        });
+    </script>
+</body>
+</html>
